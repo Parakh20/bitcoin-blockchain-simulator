@@ -30,7 +30,7 @@ class ProofOfWork:
 
             # Return progress every 1000 iterations to allow checking for new blocks
             if nonce % 1000 == 0:
-                return nonce
+                return (nonce, current_hash)
 
     def calculate_block_hash(self, nonce):
         # Calculates the hash of the block header with the given nonce.
