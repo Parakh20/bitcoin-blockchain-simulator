@@ -1,6 +1,9 @@
+import json
 import random
 import threading
 import time
+
+from flask import Flask, Response, render_template
 
 import event_bus
 import miner_node
@@ -11,6 +14,27 @@ MIN_INTERVAL_SECONDS = 3
 MAX_INTERVAL_SECONDS = 8
 MIN_AMOUNT = 1
 MAX_AMOUNT = 5
+
+app = Flask(__name__)
+
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+
+@app.route('/events')
+def events():
+    def stream():
+        sub = event_bus.bus.subscribe()
+        try:
+            while True:
+                event = sub.get()
+                yield f"data: {json.dumps(event)}\n\n"
+        finally:
+            event_bus.bus.unsubscribe(sub)
+
+    return Response(stream(), mimetype='text/event-stream')
 
 
 def start_miner_thread(miner):
@@ -58,14 +82,8 @@ def main():
     print("[*] Starting random transaction generator...")
     threading.Thread(target=random_transaction_loop, daemon=True).start()
 
-    print("[*] Network running. Press Ctrl+C to stop.")
-    sub = event_bus.bus.subscribe()
-    try:
-        while True:
-            event = sub.get()
-            print(f"[EVENT] {event}")
-    except KeyboardInterrupt:
-        print("\n[*] Stopped.")
+    print("[*] Open http://127.0.0.1:5000 in your browser. Press Ctrl+C to stop.")
+    app.run(host='127.0.0.1', port=5000, threaded=True)
 
 
 if __name__ == '__main__':

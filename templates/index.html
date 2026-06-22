@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head><title>Bitcoin Simulator - Live</title></head>
+<body>
+<h1>Live Blockchain Simulator</h1>
+<pre id="feed"></pre>
+<script>
+const feed = document.getElementById('feed');
+const source = new EventSource('/events');
+source.onmessage = (e) => {
+    feed.textContent += e.data + "\n";
+};
+</script>
+</body>
+</html>
