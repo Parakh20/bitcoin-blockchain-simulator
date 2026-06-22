@@ -98,6 +98,10 @@ class Miner:
                 if n != self:
                     n.message_queue.append(("txn", new_txn))
 
+        # txn_created must stay here, not in the message_queue drain path above:
+        # peers re-queue the same txn as ("txn", new_txn) and process it as
+        # handle_incoming_transaction -> txn_received, so moving this publish
+        # into the queue-drain logic would double-fire txn_created per peer.
         event_bus.bus.publish({
             "type": "txn_created",
             "from": self.pub_key_hash,
