@@ -148,9 +148,17 @@ class Miner:
         nonce = 0
         while True:
             result = self.pow_worker.mine(nonce)
-            if isinstance(result, int):
+            if isinstance(result, tuple):
                 # Mining interrupted or paused to check messages
-                nonce = result
+                nonce, current_hash = result
+                event_bus.bus.publish({
+                    "type": "mining_progress",
+                    "node": self.pub_key_hash,
+                    "height": self.ledger.consensus.longest_chain_height + 1,
+                    "nonce": nonce,
+                    "hash": current_hash,
+                    "target": self.pow_worker.target,
+                })
                 self.process_message_queue()
             else:
                 # Mining successful or stopped
@@ -171,6 +179,10 @@ class Miner:
             "hash": self.current_block.block_hash,
             "parent": self.current_block.previous_hash,
             "txns": len(self.current_block.transactions),
+            "nonce": self.current_block.nonce,
+            "bits": self.current_block.difficulty_bits,
+            "target": self.pow_worker.target,
+            "merkle_root": self.current_block.merkle_tree_root,
         })
         p2p_network.PeerNetwork.broadcast_block(self.current_block, self)
 

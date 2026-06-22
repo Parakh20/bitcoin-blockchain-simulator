@@ -2,6 +2,7 @@ import block_data
 import event_bus
 import miner_node
 import p2p_network
+import pow_mechanism
 import settings
 import transaction_data
 
@@ -47,14 +48,18 @@ def test_full_event_cycle(monkeypatch):
     assert txn_received["type"] == "txn_received"
     assert txn_received["node"] == miner_a.pub_key_hash
 
-    # 3. mining the pending txn publishes block_mined
+    # 3. mining the pending txn publishes block_mined (with mining_progress events in between)
     pending_txn = miner_a.waiting_txn_pool[0]
     coinbase_txn = transaction_data.Txn.create_coinbase_txn(miner_a.keys)
     miner_a.current_block = block_data.MinedBlock(
         [coinbase_txn, pending_txn], miner_a.ledger.last_block_hash
     )
     miner_a.perform_proof_of_work()
-    block_mined = sub.get(timeout=10)
+    # Skip any mining_progress events to get to the final block_mined event
+    event = sub.get(timeout=10)
+    while event["type"] == "mining_progress":
+        event = sub.get(timeout=10)
+    block_mined = event
     assert block_mined["type"] == "block_mined"
     assert block_mined["node"] == miner_a.pub_key_hash
     assert block_mined["hash"] == miner_a.current_block.block_hash
@@ -78,7 +83,11 @@ def test_full_event_cycle(monkeypatch):
     assert txn_created_2["type"] == "txn_created"
     txn_received_2 = sub2.get(timeout=1)
     assert txn_received_2["type"] == "txn_received"
-    block_mined_2 = sub2.get(timeout=10)
+    # Skip any mining_progress events to get to the final block_mined event
+    event = sub2.get(timeout=10)
+    while event["type"] == "mining_progress":
+        event = sub2.get(timeout=10)
+    block_mined_2 = event
     assert block_mined_2["type"] == "block_mined"
 
     miner_d.handle_incoming_block(miner_c.current_block.clone())
@@ -88,3 +97,42 @@ def test_full_event_cycle(monkeypatch):
     assert block_received["hash"] == miner_c.current_block.block_hash
     assert block_received["height"] == 1
     assert block_received["txns"] == 2
+
+
+def test_perform_proof_of_work_publishes_progress_and_enriched_block_mined(monkeypatch):
+    monkeypatch.setattr(settings, "BITS", 1)
+    miner_a, miner_b = bootstrap_two_funded_nodes()
+    sub = event_bus.bus.subscribe()
+
+    coinbase_txn = transaction_data.Txn.create_coinbase_txn(miner_a.keys)
+    miner_a.current_block = block_data.MinedBlock(
+        [coinbase_txn], miner_a.ledger.last_block_hash
+    )
+
+    fake_hash = "0" * 63 + "1"
+    calls = {"count": 0}
+
+    def fake_mine(self, start_nonce):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            return (1000, fake_hash)
+        return pow_mechanism.MiningResult(1001, self.calculate_block_hash(1001))
+
+    monkeypatch.setattr(pow_mechanism.ProofOfWork, "mine", fake_mine)
+
+    miner_a.perform_proof_of_work()
+
+    progress = sub.get(timeout=1)
+    assert progress["type"] == "mining_progress"
+    assert progress["node"] == miner_a.pub_key_hash
+    assert progress["height"] == 1
+    assert progress["nonce"] == 1000
+    assert progress["hash"] == fake_hash
+    assert "target" in progress
+
+    block_mined = sub.get(timeout=1)
+    assert block_mined["type"] == "block_mined"
+    assert block_mined["nonce"] == 1001
+    assert block_mined["bits"] == 1
+    assert "target" in block_mined
+    assert block_mined["merkle_root"] == miner_a.current_block.merkle_tree_root
