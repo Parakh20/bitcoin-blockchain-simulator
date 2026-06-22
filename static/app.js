@@ -15,7 +15,9 @@ const source = new EventSource('/events');
 
 source.onmessage = (e) => {
     const event = JSON.parse(e.data);
-    appendToFeed(event);
+    if (event.type !== 'mining_progress') {
+        appendToFeed(event);
+    }
 
     if (event.type === 'block_mined' || event.type === 'block_received') {
         recordBlock(event);
