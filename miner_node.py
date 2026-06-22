@@ -8,6 +8,7 @@ import transaction_data
 import txn_output
 import txn_input
 import p2p_network
+import event_bus
 from utxo_set import UtxoSet
 from chain_manager import Ledger
 from pow_mechanism import ProofOfWork
@@ -96,6 +97,13 @@ class Miner:
             for n in p2p_network.PeerNetwork.nodes:
                 if n != self:
                     n.message_queue.append(("txn", new_txn))
+
+        event_bus.bus.publish({
+            "type": "txn_created",
+            "from": self.pub_key_hash,
+            "to": receiver_address,
+            "amount": amount,
+        })
         return True
 
     @staticmethod
@@ -124,6 +132,11 @@ class Miner:
         if not is_valid:
             print(f"T: {current_thread().name} TXN Invalid")
         self.waiting_txn_pool.append(txn)
+        event_bus.bus.publish({
+            "type": "txn_received",
+            "node": self.pub_key_hash,
+            "txn_id": txn.transaction_id,
+        })
 
     def perform_proof_of_work(self):
         # Performs Proof of Work for the current block.
@@ -147,6 +160,14 @@ class Miner:
         self.current_block.display()
         print("T: ", current_thread().name, "[MINED] [BLOCK]")
         self.ledger.append_block(self.current_block)
+        event_bus.bus.publish({
+            "type": "block_mined",
+            "node": self.pub_key_hash,
+            "height": self.ledger.consensus.longest_chain_height,
+            "hash": self.current_block.block_hash,
+            "parent": self.current_block.previous_hash,
+            "txns": len(self.current_block.transactions),
+        })
         p2p_network.PeerNetwork.broadcast_block(self.current_block, self)
 
     def process_message_queue(self):
@@ -179,5 +200,13 @@ class Miner:
         if not success:
             print("[?] Block validation failed or not added")
         else:
+            event_bus.bus.publish({
+                "type": "block_received",
+                "node": self.pub_key_hash,
+                "height": self.ledger.consensus.longest_chain_height,
+                "hash": block.block_hash,
+                "parent": block.previous_hash,
+                "txns": len(block.transactions),
+            })
             if self.pow_worker is not None:
                 self.pow_worker.stop_mining = True
