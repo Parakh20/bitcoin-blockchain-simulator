@@ -1,8 +1,15 @@
 const feedEl = document.getElementById('feed');
 const treeEl = document.getElementById('tree');
+const miningEl = document.getElementById('mining');
 
 // height (int) -> array of { hash, parent, txns }
 const blocksByHeight = {};
+
+// node (pub_key_hash) -> { height, nonce, hash, target, hashrate,
+//                          lastNonce, lastTimestamp, won, wonNonce, wonHash, wonMerkleRoot }
+const miningByNode = {};
+// preserves first-seen order of nodes for stable card ordering
+const nodeOrder = [];
 
 const source = new EventSource('/events');
 
@@ -13,6 +20,16 @@ source.onmessage = (e) => {
     if (event.type === 'block_mined' || event.type === 'block_received') {
         recordBlock(event);
         renderTree();
+    }
+
+    if (event.type === 'mining_progress') {
+        recordMiningProgress(event);
+        renderMining();
+    }
+
+    if (event.type === 'block_mined') {
+        recordMiningWin(event);
+        renderMining();
     }
 };
 
@@ -66,5 +83,89 @@ function renderTree() {
             row.appendChild(box);
         }
         treeEl.appendChild(row);
+    }
+}
+
+function ensureNodeTracked(node) {
+    if (!miningByNode[node]) {
+        miningByNode[node] = {
+            height: null,
+            nonce: null,
+            hash: null,
+            target: null,
+            hashrate: null,
+            lastNonce: null,
+            lastTimestamp: null,
+            won: false,
+            wonNonce: null,
+            wonHash: null,
+            wonMerkleRoot: null,
+        };
+        nodeOrder.push(node);
+    }
+    return miningByNode[node];
+}
+
+function recordMiningProgress(event) {
+    const entry = ensureNodeTracked(event.node);
+    const now = Date.now();
+
+    if (entry.lastNonce !== null && entry.lastTimestamp !== null) {
+        const nonceDelta = event.nonce - entry.lastNonce;
+        const secondsDelta = (now - entry.lastTimestamp) / 1000;
+        if (secondsDelta > 0 && nonceDelta > 0) {
+            entry.hashrate = nonceDelta / secondsDelta;
+        }
+    }
+
+    entry.lastNonce = event.nonce;
+    entry.lastTimestamp = now;
+    entry.height = event.height;
+    entry.nonce = event.nonce;
+    entry.hash = event.hash;
+    entry.target = event.target;
+    entry.won = false;
+}
+
+function recordMiningWin(event) {
+    const entry = ensureNodeTracked(event.node);
+    entry.won = true;
+    entry.wonNonce = event.nonce;
+    entry.wonHash = event.hash;
+    entry.wonMerkleRoot = event.merkle_root;
+    entry.target = event.target;
+    entry.height = event.height;
+}
+
+function renderMining() {
+    miningEl.innerHTML = '';
+    for (const node of nodeOrder) {
+        const entry = miningByNode[node];
+        const card = document.createElement('div');
+        card.className = entry.won ? 'mining-card won' : 'mining-card';
+
+        const hashrateText = entry.hashrate ? `${entry.hashrate.toFixed(0)} h/s` : '...';
+
+        if (entry.won) {
+            card.innerHTML = `
+                <div class="mining-node">${short(node)}</div>
+                <div class="mining-row"><span>won block</span><span>height ${entry.height}</span></div>
+                <div class="mining-row"><span>nonce</span><span>${entry.wonNonce}</span></div>
+                <div class="mining-row"><span>hash</span><span>${short(entry.wonHash)}</span></div>
+                <div class="mining-row"><span>target</span><span>${short(entry.target)}</span></div>
+                <div class="mining-row"><span>merkle root</span><span>${short(entry.wonMerkleRoot)}</span></div>
+            `;
+        } else {
+            card.innerHTML = `
+                <div class="mining-node">${short(node)}</div>
+                <div class="mining-row"><span>height</span><span>${entry.height ?? '...'}</span></div>
+                <div class="mining-row"><span>nonce</span><span>${entry.nonce ?? '...'}</span></div>
+                <div class="mining-row"><span>hash</span><span>${short(entry.hash)}</span></div>
+                <div class="mining-row"><span>target</span><span>${short(entry.target)}</span></div>
+                <div class="mining-row"><span>hashrate</span><span>${hashrateText}</span></div>
+            `;
+        }
+
+        miningEl.appendChild(card);
     }
 }

@@ -11,7 +11,7 @@ body {
     gap: 1rem;
 }
 
-#feed-panel, #tree-panel {
+#feed-panel, #tree-panel, #mining-panel {
     flex: 1;
     background: #1b1b1b;
     border: 1px solid #333;
@@ -47,4 +47,29 @@ body {
     padding: 0.4rem 0.6rem;
     background: #222;
     font-size: 0.8rem;
+}
+
+.mining-card {
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 0.4rem 0.6rem;
+    margin-bottom: 0.5rem;
+    background: #222;
+    font-size: 0.8rem;
+}
+
+.mining-card .mining-node {
+    color: #fc6;
+    font-weight: bold;
+}
+
+.mining-card .mining-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.mining-card.won {
+    border-color: #6f6;
+    background: #1a2e1a;
 }
