@@ -1,0 +1,50 @@
+body {
+    font-family: monospace;
+    background: #111;
+    color: #eee;
+    margin: 0;
+    padding: 1rem;
+}
+
+#layout {
+    display: flex;
+    gap: 1rem;
+}
+
+#feed-panel, #tree-panel {
+    flex: 1;
+    background: #1b1b1b;
+    border: 1px solid #333;
+    padding: 0.5rem 1rem;
+    height: 80vh;
+    overflow-y: auto;
+}
+
+#feed {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#feed li {
+    padding: 0.2rem 0;
+    border-bottom: 1px solid #222;
+}
+
+#feed li.txn { color: #6cf; }
+#feed li.block { color: #6f6; }
+
+.tree-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.block-box {
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 0.4rem 0.6rem;
+    background: #222;
+    font-size: 0.8rem;
+}
