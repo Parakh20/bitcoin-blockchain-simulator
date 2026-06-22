@@ -18,6 +18,8 @@ A Python implementation of the core mechanics of the Bitcoin protocol: ECDSA-bas
 | `p2p_network.py` | In-process star-topology network — transaction/block broadcast between nodes |
 | `miner_node.py` | `Miner`: wallet, mining loop, message queue processing, wraps ledger + network + PoW |
 | `chain_visualizer.py` | ASCII tree renderer for the consensus block tree (height, hash, tx count) |
+| `event_bus.py` | Thread-safe pub/sub used to stream simulation events to the live browser visualizer |
+| `live_visualizer.py` | Flask app: runs the simulator forever with random transactions, serves a live browser UI (event feed + block tree) over Server-Sent Events |
 | `settings.py` | Tunable constants: PoW difficulty (`BITS`), mining reward, Merkle tree arity |
 | `demo.py` | Spins up 3 nodes, mines blocks, broadcasts transactions, prints the final chain |
 | `simulation.py`, `test_scenario_1.py`, `test_scenario_2.py` | Larger multi-node scenarios with more transactions and longer mining windows |
@@ -33,6 +35,16 @@ python demo.py
 ```
 
 The demo runs for about 30 seconds: it creates 3 miner nodes, distributes a genesis block, sends two transactions, lets the network mine them into blocks, then shuts down cleanly and prints the resulting chain.
+
+## Live browser visualizer
+
+`live_visualizer.py` runs the simulator indefinitely with 5 nodes and randomly generated transactions, and serves a live view in your browser:
+
+```bash
+python live_visualizer.py
+```
+
+Open `http://127.0.0.1:5000`. The left panel shows a live event feed (transactions and blocks as they happen); the right panel shows the block tree growing in real time. Press Ctrl+C in the terminal to stop.
 
 ## Example output
 
