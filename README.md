@@ -1,5 +1,8 @@
 # Bitcoin Blockchain Simulator
 
+[![CI](https://github.com/Parakh20/bitcoin-blockchain-simulator/actions/workflows/ci.yml/badge.svg)](https://github.com/Parakh20/bitcoin-blockchain-simulator/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A Python implementation of the core mechanics of the Bitcoin protocol: ECDSA-based wallets, P2PKH script verification, Hashcash-style Proof of Work, an n-depth UTXO trie, Merkle-rooted blocks, and longest-chain consensus with reorganization — all driven by a multi-threaded, in-process peer network. It's built to be read end-to-end: every subsystem is a small, single-purpose module rather than a framework, so you can trace a transaction from signing through mining to UTXO settlement without jumping through abstraction layers.
 
 ## Architecture
@@ -22,11 +25,16 @@ A Python implementation of the core mechanics of the Bitcoin protocol: ECDSA-bas
 | `live_visualizer.py` | Flask app: runs the simulator forever with random transactions, serves a live browser UI (event feed + block tree) over Server-Sent Events |
 | `settings.py` | Tunable constants: PoW difficulty (`BITS`), mining reward, Merkle tree arity |
 | `demo.py` | Spins up 3 nodes, mines blocks, broadcasts transactions, prints the final chain |
-| `simulation.py`, `test_scenario_1.py`, `test_scenario_2.py` | Larger multi-node scenarios with more transactions and longer mining windows |
+| `examples/` | Larger multi-node scenarios (`simulation.py`, `scenario_1.py`, `scenario_2.py`) with more transactions and longer mining windows |
+| `tests/` | pytest suite: protocol primitives, PoW, event bus, miner event publishing |
 
 ## Install and run
 
+Requires Python 3.11+.
+
 ```bash
+git clone https://github.com/Parakh20/bitcoin-blockchain-simulator.git
+cd bitcoin-blockchain-simulator
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -76,7 +84,26 @@ T:  Thread-2 (start_miner_thread) [MINED] [BLOCK]
     └── [Height 2] 00009a6eb0... | txns: 2
 ```
 
-For larger, longer-running scenarios with more nodes and transactions, see `simulation.py`, `test_scenario_1.py`, and `test_scenario_2.py` (the latter accepts an optional node-count argument, e.g. `python test_scenario_2.py 5`).
+For larger, longer-running scenarios with more nodes and transactions, see `examples/`:
+
+```bash
+python examples/simulation.py     # 3 nodes, ~30 s
+python examples/scenario_1.py     # 5 nodes, ~70 s
+python examples/scenario_2.py 5   # N nodes (N >= 5), also sets Merkle-tree arity to N
+```
+
+## Tests
+
+```bash
+pytest
+```
+
+17 tests run in about 2 seconds. They cover key generation, hash160 and
+double-SHA256, Base58 round-trips, Merkle roots, P2PKH signature verification
+(including tampered messages and the wrong key), coinbase transactions, UTXO trie
+spend and restore, Proof-of-Work nonce search and checkpointing, the event bus,
+and the events miners publish to the live visualizer. CI runs the suite on
+Python 3.11 for every push and pull request.
 
 ## Design decisions
 
@@ -87,3 +114,7 @@ For larger, longer-running scenarios with more nodes and transactions, see `simu
 **Star-topology in-process network.** `p2p_network.py` broadcasts directly between `Miner` objects in the same process rather than using sockets. This keeps the consensus and validation logic (`chain_manager.py`, `consensus.py`) decoupled from any transport concern, so the same `Ledger`/`ConsensusMechanism` code would work unchanged behind a real network layer.
 
 **Reorg as an explicit diff, not a rescan.** `ConsensusMechanism.add_block` walks up from the new block and the current chain head to their common ancestor and returns the exact `blocks_to_remove` / `blocks_to_add` sets. `Ledger.handle_reorg` applies that diff directly to the UTXO trie (re-adding spent outputs from the abandoned branch, removing outputs consumed by the new branch) instead of replaying the whole chain from genesis.
+
+## License
+
+[MIT](LICENSE) (c) 2026 Parakh Sharma
