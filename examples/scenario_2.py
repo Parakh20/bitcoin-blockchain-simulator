@@ -1,6 +1,14 @@
+"""Configurable scenario: N nodes (default 5, minimum 5) and Merkle-tree arity N.
+
+Usage: python examples/scenario_2.py [N]
+"""
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import threading
 import time
-import sys
 
 import settings
 from p2p_network import PeerNetwork
@@ -10,20 +18,8 @@ def start_miner_thread(miner):
     miner.mine_continuously()
 
 def main():
-    # Expecting number of nodes as first argument (after arity which is handled in __main__)
-    # But original code used sys.argv[1] for num_nodes in main(), but also sys.argv[1] for arity in __main__?
-    # Original code:
-    # if __name__ == '__main__':
-    #     arity = int(sys.argv[1])
-    #     config.arity = arity
-    #     main()
-    # def main():
-    #     Network.create_nodes(num_nodes=int(sys.argv[1]))
-    
-    # This implies sys.argv[1] is used for BOTH arity and num_nodes? Or maybe the user meant to pass two args?
-    # Let's assume sys.argv[1] is num_nodes based on main(), and maybe arity was intended to be a different arg or the same.
-    # If I run `python test1.py 3`, arity=3 and num_nodes=3.
-    
+    # The optional CLI argument sets both the node count (here) and the
+    # Merkle-tree arity (in __main__), matching the original assignment script.
     try:
         num_nodes = int(sys.argv[1])
     except IndexError:

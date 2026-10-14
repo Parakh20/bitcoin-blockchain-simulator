@@ -1,8 +1,15 @@
-import threading
-import time
+"""5-node scenario: four transactions over ~70 s, printing each node's state.
+
+Usage: python examples/scenario_1.py
+"""
+import os
 import sys
 
-import settings
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import threading
+import time
+
 from p2p_network import PeerNetwork
 import miner_node
 
@@ -10,14 +17,12 @@ def start_miner_thread(miner):
     miner.mine_continuously()
 
 def main():
-    PeerNetwork.initialize_nodes(num_nodes=3)
+    PeerNetwork.initialize_nodes(num_nodes=5)
     genesis_block = miner_node.Miner.generate_genesis_block(PeerNetwork.nodes[0].keys)
     genesis_block.display()
     
-    # Simulate receiving the genesis transaction
     PeerNetwork.nodes[0].receive_transaction_id((genesis_block.transactions[0].transaction_id, 0))
 
-    # Distribute genesis block to all nodes
     for i, miner in enumerate(PeerNetwork.nodes):
         PeerNetwork.address_map[miner.pub_key_hash] = i
         success = miner.store_genesis_block(genesis_block.clone())
@@ -34,17 +39,13 @@ def main():
     for t in threads:
         t.start()
 
-    # Simulate transactions
     lock = threading.Lock()
 
     def create_simulation_txn(from_index, to_index, amount):
         print("[****************------ CREATING-TXN-----************]")
-        
-        # Directly injecting message to simulate user action
         PeerNetwork.nodes[from_index].send_message(
             ("new_txn", (PeerNetwork.nodes[to_index].pub_key_hash, amount))
         )
-        
         print("[#] From: ", PeerNetwork.nodes[from_index].pub_key_hash)
         print("[#] To: ", PeerNetwork.nodes[to_index].pub_key_hash)
         print("[+] Amount: ", amount)
@@ -53,17 +54,17 @@ def main():
         create_simulation_txn(0, 1, 10)
         create_simulation_txn(0, 2, 10)
     
-    time.sleep(10)
+    time.sleep(20)
     with lock:
         create_simulation_txn(1, 2, 5)
         create_simulation_txn(2, 0, 5)
 
-    time.sleep(20)
+    time.sleep(50)
 
-    # Stop mining
     for miner in PeerNetwork.nodes:
         miner.is_running = False
 
+    print("[#] After transactions all over")
     for miner in PeerNetwork.nodes:
         miner.display()
         print(miner)
