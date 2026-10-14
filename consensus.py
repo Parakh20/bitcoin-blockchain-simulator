@@ -17,7 +17,8 @@ class BlockNode:
         parent_hash = "0"*64 if self.parent is None else self.parent.block.block_hash
         s = f" p: {parent_hash} h: {self.height} id: {self.block.block_hash}"
         children_str = "\n\t".join([str(x) for x in self.children])
-        s += f" child: -> \n{'\t'*(self.height+1)}[{children_str}]"
+        indent = "\t" * (self.height + 1)
+        s += f" child: -> \n{indent}[{children_str}]"
         return s
 
 class ConsensusMechanism:
